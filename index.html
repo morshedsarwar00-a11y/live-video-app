@@ -1,0 +1,1117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>Live Video App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #f2f3f6;
+        --surface: #ffffff;
+        --surface-2: #e9ebf0;
+        --ink: #171a21;
+        --muted: #5d6572;
+        --line: #dde0e7;
+        --accent: #f43f5e;
+        --accent-deep: #d92647;
+        --amber: #f59e0b;
+        --teal: #0db894;
+        --live: #ef233c;
+        --chip: #eceef3;
+        --shadow: 0 10px 30px rgba(23, 26, 33, .12);
+        --radius: 16px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d0f13;
+          --surface: #171a21;
+          --surface-2: #21252e;
+          --ink: #f2f3f6;
+          --muted: #9aa3b1;
+          --line: #2a2f39;
+          --chip: #21252e;
+          --shadow: 0 10px 30px rgba(0, 0, 0, .45);
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+      }
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2.25rem; }
+      button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+      img { max-width: 100%; }
+      .hidden { display: none !important; }
+
+      /* ---------- Avatar (initials, generated colours — no real photos) ---------- */
+      .avatar {
+        border-radius: 50%;
+        display: inline-flex; align-items: center; justify-content: center;
+        color: #fff; font-weight: 800; flex: none;
+        background: hsl(var(--h, 200) 65% 45%);
+        border: 2px solid rgba(255,255,255,.35);
+      }
+      .avatar.sm { width: 34px; height: 34px; font-size: 13px; }
+      .avatar.md { width: 46px; height: 46px; font-size: 17px; }
+      .avatar.lg { width: 72px; height: 72px; font-size: 27px; }
+      .lvl {
+        display: inline-flex; align-items: center; gap: 3px;
+        background: linear-gradient(90deg, #f59e0b, #f97316);
+        color: #fff; font-size: 10px; font-weight: 800;
+        padding: 2px 7px; border-radius: 999px; letter-spacing: .02em;
+      }
+      .lvl.cool { background: linear-gradient(90deg, #0db894, #0ea5a4); }
+      .lvl.hot { background: linear-gradient(90deg, #f43f5e, #d92647); }
+
+      /* ---------- COVER — Bigo-style login cover (exactly one viewport, self-fitting) ---------- */
+      #cover {
+        position: relative;
+        height: 100dvh; max-height: 100dvh; overflow: hidden;
+        background: #0a0812;
+        color: #fff;
+      }
+      /* Full-bleed mosaic of live-room tiles behind everything */
+      .cover-mosaic {
+        position: absolute; inset: 0; z-index: 0;
+        display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: 3px;
+      }
+      @media (min-width: 760px) { .cover-mosaic { grid-template-columns: repeat(5, 1fr); } }
+      .mosaic-tile {
+        position: relative; overflow: hidden;
+        background: linear-gradient(160deg, hsl(var(--h) 72% 52%), hsl(calc(var(--h) + 45) 78% 32%));
+        display: flex; align-items: center; justify-content: center;
+      }
+      .mosaic-tile .avatar {
+        width: clamp(40px, 8vh, 64px); height: clamp(40px, 8vh, 64px);
+        font-size: clamp(15px, 3vh, 24px); border-width: 2.5px;
+        box-shadow: 0 8px 22px rgba(0,0,0,.35);
+      }
+      .mosaic-tile .m-live {
+        position: absolute; top: 7px; left: 7px;
+        background: var(--live); color: #fff; font-size: 9px; font-weight: 800;
+        letter-spacing: .08em; padding: 3px 6px; border-radius: 5px;
+      }
+      .mosaic-tile .m-view {
+        position: absolute; top: 7px; right: 7px;
+        background: rgba(0,0,0,.45); color: #fff; font-size: 9.5px; font-weight: 700;
+        padding: 3px 7px; border-radius: 999px;
+      }
+      .mosaic-tile .m-name {
+        position: absolute; left: 8px; right: 8px; bottom: 7px;
+        font-size: 11px; font-weight: 700; color: #fff;
+        text-shadow: 0 1px 6px rgba(0,0,0,.75);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      /* Dark violet shade so the login panel reads over the mosaic */
+      .cover-shade {
+        position: absolute; inset: 0; z-index: 1; pointer-events: none;
+        background: linear-gradient(180deg, rgba(12,8,24,.42) 0%, rgba(26,10,44,.30) 32%, rgba(18,6,32,.80) 66%, rgba(10,4,22,.96) 100%);
+      }
+      .cover-content {
+        position: relative; z-index: 2; height: 100%;
+        display: flex; flex-direction: column; align-items: center;
+        max-width: 470px; margin: 0 auto; text-align: center;
+        padding: max(2vh, 12px) 22px max(1.8vh, 12px);
+      }
+      .cover-top { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .demo-badge {
+        background: var(--live); color: #fff; font-weight: 800; font-size: 12px;
+        letter-spacing: .14em; padding: 7px 14px; border-radius: 999px;
+      }
+      .cover-lang {
+        background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.28); color: #fff;
+        font-weight: 700; font-size: 12.5px; padding: 7px 13px; border-radius: 999px;
+        display: inline-flex; align-items: center; gap: 6px; min-height: 34px;
+      }
+      .pulse-dot { width: 9px; height: 9px; border-radius: 50%; background: #ff4d6d; animation: pulse 1.4s infinite; }
+      @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,77,109,.55);} 70% { box-shadow: 0 0 0 9px rgba(255,77,109,0);} 100% { box-shadow: 0 0 0 0 rgba(255,77,109,0);} }
+      .cover-hero { margin-top: 3.4vh; display: flex; flex-direction: column; align-items: center; gap: 1.3vh; }
+      .logo-mark {
+        width: clamp(62px, 11vh, 92px); height: clamp(62px, 11vh, 92px);
+        border-radius: 26%;
+        background: linear-gradient(135deg, #f43f5e 10%, #a855f7 90%);
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 16px 38px rgba(168,85,247,.5);
+        border: 2px solid rgba(255,255,255,.35);
+      }
+      .logo-mark svg { width: 56%; height: 56%; }
+      .cover-name { font-size: clamp(34px, 7.2vh, 58px); font-weight: 800; line-height: 1.02; letter-spacing: -.02em; text-shadow: 0 3px 18px rgba(0,0,0,.55); }
+      .cover-name span { color: #ff8296; }
+      .cover-tag { font-size: clamp(13.5px, 2vh, 16.5px); color: #e6e0f2; max-width: 32em; line-height: 1.45; margin: 0; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
+      .cover-live-count {
+        font-size: 12.5px; font-weight: 700; color: #fff;
+        display: inline-flex; align-items: center; gap: 7px;
+        background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.2);
+        padding: 7px 14px; border-radius: 999px;
+      }
+      /* Login stack pinned to the bottom, Bigo-style */
+      .cover-login { margin-top: auto; width: 100%; display: flex; flex-direction: column; gap: 1.25vh; }
+      .social-btn {
+        position: relative; width: 100%;
+        height: clamp(46px, 6.4vh, 54px); min-height: 46px;
+        border-radius: 999px; font-size: 15.5px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+      }
+      .social-btn .s-ic { position: absolute; left: 22px; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
+      .social-btn .s-ic svg { width: 21px; height: 21px; }
+      .social-btn.google { background: #fff; color: #1f2430; box-shadow: 0 8px 22px rgba(0,0,0,.35); }
+      .social-btn.facebook { background: #1877f2; color: #fff; box-shadow: 0 8px 22px rgba(0,0,0,.35); }
+      .social-btn.phone { background: rgba(255,255,255,.13); color: #fff; border: 1px solid rgba(255,255,255,.38); }
+      .social-btn:active { transform: scale(.98); }
+      .cover-or { display: flex; align-items: center; gap: 12px; color: #d8d0e8; font-size: 11.5px; font-weight: 800; letter-spacing: .12em; }
+      .cover-or::before, .cover-or::after { content: ""; flex: 1; height: 1px; background: rgba(255,255,255,.28); }
+      .cover-guest-row { display: flex; gap: 10px; }
+      .btn-enter {
+        flex: 1.25; background: var(--accent); color: #fff;
+        font-size: clamp(14.5px, 2vh, 16.5px); font-weight: 800;
+        padding: 0 18px; height: clamp(46px, 6.4vh, 54px); border-radius: 999px;
+        box-shadow: 0 12px 28px rgba(244,63,94,.45);
+      }
+      .btn-enter:active { transform: scale(.97); }
+      .btn-ghost {
+        flex: 1; background: rgba(0,0,0,.4); color: #fff; font-weight: 700; font-size: clamp(13.5px, 1.9vh, 15px);
+        padding: 0 14px; height: clamp(46px, 6.4vh, 54px); border-radius: 999px;
+        border: 1px solid rgba(255,255,255,.35);
+      }
+      .cover-terms { font-size: 11px; color: #bdb4cf; line-height: 1.5; margin: .4vh 0 0; }
+      .cover-terms b { color: #fff; font-weight: 700; }
+
+      /* ---------- APP SHELL ---------- */
+      #app { min-height: 100dvh; display: flex; flex-direction: column; }
+      .topbar {
+        position: sticky; top: 0; z-index: 30;
+        background: var(--bg); border-bottom: 1px solid var(--line);
+        padding: 10px clamp(14px, 4vw, 32px);
+        display: flex; align-items: center; gap: 12px;
+      }
+      .search-box {
+        flex: 1; display: flex; align-items: center; gap: 8px;
+        background: var(--chip); border-radius: 999px; padding: 0 16px; min-height: 42px;
+      }
+      .search-box svg { flex: none; opacity: .55; }
+      .search-box input { border: none; background: none; outline: none; flex: 1; font: inherit; color: var(--ink); min-height: 40px; }
+      .coin-pill {
+        display: flex; align-items: center; gap: 7px; font-weight: 800;
+        background: var(--surface); border: 1px solid var(--line);
+        padding: 0 8px 0 14px; border-radius: 999px; min-height: 42px;
+      }
+      .coin-pill .coin-ic { width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ffd97a, #f59e0b); display: inline-block; }
+      .coin-pill button { background: var(--accent); color: #fff; border-radius: 999px; width: 30px; height: 30px; min-height: 30px; font-size: 18px; font-weight: 800; line-height: 1; }
+      .demo-chip { background: var(--live); color: #fff; font-size: 10.5px; font-weight: 800; letter-spacing: .12em; padding: 5px 9px; border-radius: 6px; }
+
+      main { flex: 1; width: 100%; max-width: 1120px; margin: 0 auto; padding: 16px clamp(14px, 4vw, 32px) 96px; }
+      @media (min-width: 900px) { main { padding-bottom: 32px; } }
+
+      .cats { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 12px; scrollbar-width: none; }
+      .cats::-webkit-scrollbar { display: none; }
+      .cat {
+        flex: none; padding: 0 18px; min-height: 38px; border-radius: 999px;
+        background: var(--surface); border: 1px solid var(--line); font-weight: 700; font-size: 14px;
+      }
+      .cat.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+      .section-title { font-size: 19px; font-weight: 800; margin: 14px 0 12px; letter-spacing: -.01em; }
+      .room-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+      @media (min-width: 700px) { .room-grid { grid-template-columns: repeat(3, 1fr); } }
+      @media (min-width: 1000px) { .room-grid { grid-template-columns: repeat(4, 1fr); } }
+      .room-card { background: var(--surface); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); text-align: left; padding: 0; width: 100%; }
+      .thumb {
+        display: block;
+        position: relative; aspect-ratio: 3 / 3.4;
+        background: linear-gradient(160deg, hsl(var(--h) 72% 52%), hsl(calc(var(--h) + 45) 78% 34%));
+        overflow: hidden;
+      }
+      .thumb::after {
+        content: ""; position: absolute; inset: 0;
+        background: radial-gradient(70% 45% at 50% 88%, rgba(0,0,0,.38), transparent 70%);
+      }
+      .thumb .big-av { position: absolute; left: 50%; top: 44%; transform: translate(-50%,-50%); z-index: 2; }
+      .thumb .big-av .avatar { width: 84px; height: 84px; font-size: 32px; border-width: 3px; box-shadow: 0 10px 26px rgba(0,0,0,.35); animation: bob 3.4s ease-in-out infinite; }
+      @keyframes bob { 0%,100% { transform: translateY(0);} 50% { transform: translateY(-7px);} }
+      .live-tag {
+        position: absolute; top: 10px; left: 10px; z-index: 3;
+        background: var(--live); color: #fff; font-size: 10.5px; font-weight: 800; letter-spacing: .1em;
+        padding: 4px 8px; border-radius: 6px; display: flex; gap: 5px; align-items: center;
+      }
+      .live-tag i { width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: pulse 1.4s infinite; }
+      .viewers {
+        position: absolute; top: 10px; right: 10px; z-index: 3;
+        background: rgba(0,0,0,.45); color: #fff; font-size: 11.5px; font-weight: 700;
+        padding: 4px 9px; border-radius: 999px;
+      }
+      .eq { position: absolute; bottom: 12px; right: 12px; z-index: 3; display: flex; gap: 3px; align-items: flex-end; height: 16px; }
+      .eq i { width: 3.5px; background: #fff; border-radius: 2px; animation: eq 0.9s ease-in-out infinite; }
+      .eq i:nth-child(2) { animation-delay: .18s; } .eq i:nth-child(3) { animation-delay: .36s; } .eq i:nth-child(4) { animation-delay: .1s; }
+      @keyframes eq { 0%,100% { height: 5px; } 50% { height: 15px; } }
+      .room-meta { display: block; padding: 11px 12px 13px; text-align: left; }
+      .stage.pk #stageHost {
+        position: relative; left: auto; top: auto; transform: none; flex: 1;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+      }
+      .room-meta h3 { margin: 0 0 3px; font-size: 14.5px; font-weight: 700; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+      .room-host { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); font-weight: 600; }
+      .room-host .nm { color: var(--ink); font-weight: 700; }
+      .tag-chip { margin-left: auto; font-size: 10.5px; font-weight: 800; background: var(--chip); padding: 3px 8px; border-radius: 999px; color: var(--muted); }
+
+      /* ---------- BOTTOM / SIDE NAV ---------- */
+      .tabbar {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+        background: var(--surface); border-top: 1px solid var(--line);
+        display: flex; justify-content: space-around; padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+      }
+      .tab {
+        display: flex; flex-direction: column; align-items: center; gap: 2px;
+        font-size: 10.5px; font-weight: 700; color: var(--muted);
+        padding: 6px 10px; border-radius: 12px; min-width: 60px; min-height: 48px; justify-content: center;
+      }
+      .tab.on { color: var(--accent); }
+      .tab svg { width: 23px; height: 23px; }
+      .tab.go-live { color: var(--accent); }
+      .tab.go-live .gl {
+        width: 46px; height: 46px; margin-top: -20px; border-radius: 50%;
+        background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 8px 20px rgba(244,63,94,.45); border: 3px solid var(--surface);
+      }
+      .tab.go-live .gl svg { width: 24px; height: 24px; }
+      @media (min-width: 900px) {
+        .tabbar { left: 0; right: auto; top: 0; bottom: 0; width: 84px; flex-direction: column; justify-content: flex-start; gap: 8px; padding-top: 90px; border-top: none; border-right: 1px solid var(--line); }
+        .tab.go-live .gl { margin-top: 0; }
+        #app { padding-left: 84px; }
+        .topbar { left: 84px; }
+      }
+
+      /* ---------- GENERIC PAGES ---------- */
+      .card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+      .page-head { margin: 4px 0 14px; }
+      .page-head h2 { margin: 0 0 4px; font-size: 23px; font-weight: 800; letter-spacing: -.01em; }
+      .page-head p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+      .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+      .stat { background: var(--surface); border-radius: 14px; box-shadow: var(--shadow); padding: 14px 12px; text-align: center; }
+      .stat b { display: block; font-size: 19px; font-weight: 800; }
+      .stat span { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+      .list-row { display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--line); }
+      .list-row:last-child { border-bottom: none; }
+      .list-row .grow { flex: 1; min-width: 0; }
+      .list-row .grow b { display: block; font-size: 14.5px; }
+      .list-row .grow span { font-size: 12.5px; color: var(--muted); }
+      .btn-follow { background: var(--accent); color: #fff; font-weight: 800; font-size: 13px; padding: 0 16px; border-radius: 999px; min-height: 36px; }
+      .btn-follow.on { background: var(--chip); color: var(--muted); }
+      .btn-join { background: var(--ink); color: var(--bg); font-weight: 800; font-size: 13px; padding: 0 16px; border-radius: 999px; min-height: 36px; }
+      .empty-note { text-align: center; color: var(--muted); padding: 34px 16px; font-size: 14px; line-height: 1.6; }
+
+      /* Recharge */
+      .wallet-hero { background: linear-gradient(120deg, #1d212b, #2b2135); color: #fff; border-radius: var(--radius); padding: 22px; margin-bottom: 14px; position: relative; overflow: hidden; }
+      .wallet-hero::after { content: ""; position: absolute; width: 220px; height: 220px; border-radius: 50%; background: rgba(244,63,94,.3); right: -70px; top: -80px; }
+      .wallet-hero .bal { font-size: 36px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+      .wallet-hero p { color: #c6cad4; margin: 4px 0 0; font-size: 13.5px; position: relative; z-index: 1; }
+      .pack-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      @media (min-width: 700px) { .pack-grid { grid-template-columns: repeat(3, 1fr); } }
+      .pack { background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius); padding: 18px 14px; text-align: center; position: relative; }
+      .pack.pop { border-color: var(--amber); }
+      .pack .pop-tag { position: absolute; top: -11px; left: 50%; transform: translateX(-50%); background: var(--amber); color: #231a02; font-size: 10.5px; font-weight: 800; padding: 3px 10px; border-radius: 999px; letter-spacing: .05em; }
+      .pack .coins { font-size: 24px; font-weight: 800; display: flex; justify-content: center; align-items: center; gap: 7px; }
+      .pack .bonus { color: var(--teal); font-size: 12px; font-weight: 800; min-height: 16px; }
+      .pack .price { color: var(--muted); font-weight: 700; font-size: 14px; margin: 6px 0 12px; }
+      .pack button { background: var(--accent); color: #fff; font-weight: 800; width: 100%; border-radius: 999px; min-height: 40px; }
+
+      /* Profile */
+      .profile-hero { display: flex; gap: 16px; align-items: center; margin-bottom: 14px; }
+      .xpbar { height: 9px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin-top: 8px; }
+      .xpbar i { display: block; height: 100%; background: linear-gradient(90deg, #f59e0b, #f43f5e); border-radius: 999px; }
+      .badge-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+      .badge-item { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 70px; text-align: center; }
+      .badge-item .bic { width: 46px; height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; background: var(--chip); }
+      .badge-item span { font-size: 10.5px; font-weight: 700; color: var(--muted); line-height: 1.25; }
+      .menu-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px 4px; border-bottom: 1px solid var(--line); font-weight: 700; font-size: 15px; min-height: 52px; }
+      .menu-row:last-child { border-bottom: none; }
+      .menu-row .chev { margin-left: auto; color: var(--muted); }
+
+      /* ---------- LIVE ROOM ---------- */
+      #roomView { position: fixed; inset: 0; z-index: 60; background: #0b0c10; color: #fff; display: flex; flex-direction: column; }
+      .stage {
+        position: relative; flex: 1; min-height: 0; overflow: hidden;
+        background: linear-gradient(165deg, hsl(var(--h,320) 70% 46%), hsl(calc(var(--h,320) + 50) 75% 26%));
+      }
+      .stage::before { content: ""; position: absolute; inset: 0; background: radial-gradient(60% 40% at 50% 30%, rgba(255,255,255,.16), transparent 70%); }
+      .stage-host { position: absolute; left: 50%; top: 38%; transform: translate(-50%,-50%); text-align: center; z-index: 2; }
+      .stage-host .avatar { width: clamp(110px, 22vh, 170px); height: clamp(110px, 22vh, 170px); font-size: clamp(42px, 8vh, 64px); border-width: 4px; box-shadow: 0 22px 50px rgba(0,0,0,.45); animation: bob 3.4s ease-in-out infinite; }
+      .stage-host p { margin: 12px 0 0; font-weight: 700; font-size: 14px; text-shadow: 0 2px 10px rgba(0,0,0,.5); }
+      .stage-demo { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 2; background: rgba(0,0,0,.55); font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 999px; white-space: nowrap; }
+      .stage.pk { display: flex; }
+      .pk-side { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; }
+      .pk-side.foe { background: linear-gradient(165deg, hsl(calc(var(--h,320) + 130) 65% 42%), hsl(calc(var(--h,320) + 180) 70% 24%)); border-left: 2px solid rgba(255,255,255,.35); }
+      .pk-vs { position: absolute; left: 50%; top: 34%; transform: translate(-50%,-50%); z-index: 5; background: #fff; color: #d92647; font-weight: 800; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+      .pk-scorebar { position: absolute; left: 12px; right: 12px; bottom: 46px; z-index: 4; }
+      .pk-track { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.25); }
+      .pk-track .me { background: var(--accent); transition: width .6s ease; }
+      .pk-track .foe { background: #38bdf8; transition: width .6s ease; }
+      .pk-nums { display: flex; justify-content: space-between; font-weight: 800; font-size: 13px; margin-bottom: 5px; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+      .pk-timer { position: absolute; top: 76px; left: 50%; transform: translateX(-50%); z-index: 5; background: rgba(0,0,0,.55); padding: 5px 14px; border-radius: 999px; font-weight: 800; font-size: 13px; }
+      .room-top { position: absolute; top: 0; left: 0; right: 0; z-index: 6; padding: calc(10px + env(safe-area-inset-top)) 12px 10px; display: flex; align-items: flex-start; gap: 10px; background: linear-gradient(180deg, rgba(0,0,0,.5), transparent); }
+      .host-chip { display: flex; align-items: center; gap: 9px; background: rgba(0,0,0,.45); border-radius: 999px; padding: 4px 12px 4px 4px; text-align: left; color: #fff; }
+      .host-chip b { display: block; font-size: 13.5px; line-height: 1.15; }
+      .host-chip span { font-size: 11px; color: #d6d9e0; }
+      .room-top .sp { flex: 1; }
+      .watch-chip { background: rgba(0,0,0,.45); border-radius: 999px; padding: 7px 12px; font-size: 12.5px; font-weight: 700; }
+      .icon-btn { width: 40px; height: 40px; min-height: 40px; border-radius: 50%; background: rgba(0,0,0,.45); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
+      .icon-btn svg { width: 20px; height: 20px; }
+      .seats { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 3; display: flex; gap: 8px; }
+      .stage.pk .seats { display: none; }
+      .seat { flex: 1; max-width: 74px; text-align: center; }
+      .seat .slot { width: 100%; aspect-ratio: 1; border-radius: 14px; background: rgba(0,0,0,.35); border: 1.5px dashed rgba(255,255,255,.4); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+      .seat .slot.full { border-style: solid; border-color: rgba(255,255,255,.55); padding: 0; }
+      .seat .slot .avatar { width: 100%; height: 100%; border: none; border-radius: 0; font-size: 20px; }
+      .seat span { display: block; font-size: 9.5px; font-weight: 700; margin-top: 3px; text-shadow: 0 1px 5px rgba(0,0,0,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .seat button.slot { color: #fff; font-size: 20px; min-height: 0; width: 100%; }
+
+      .room-bottom { background: #12131a; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 9px; max-height: 46dvh; }
+      .chat-feed { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; min-height: 74px; padding-right: 2px; }
+      .chat-msg { background: rgba(255,255,255,.08); border-radius: 12px; padding: 6px 11px; font-size: 13px; line-height: 1.4; width: fit-content; max-width: 92%; }
+      .chat-msg b { color: #ffb3c0; }
+      .chat-msg.sys { background: rgba(245,158,11,.18); color: #ffd97a; font-weight: 700; }
+      .chat-msg.giftm { background: rgba(244,63,94,.22); font-weight: 700; }
+      .chat-row { display: flex; gap: 8px; align-items: center; }
+      .chat-row input { flex: 1; min-width: 0; background: rgba(255,255,255,.1); border: none; border-radius: 999px; padding: 0 16px; color: #fff; font: inherit; font-size: 14px; min-height: 42px; outline: none; }
+      .chat-row input::placeholder { color: #9aa0ad; }
+      .round-btn { width: 44px; height: 44px; min-height: 44px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #fff; }
+      .round-btn.send { background: var(--accent); }
+      .round-btn.util { background: rgba(255,255,255,.12); }
+      .round-btn.pk-on { background: #38bdf8; }
+      .emoji-tray { display: flex; gap: 4px; overflow-x: auto; padding: 2px; scrollbar-width: none; }
+      .emoji-tray::-webkit-scrollbar { display: none; }
+      .emoji-tray button { font-size: 23px; padding: 4px 7px; min-height: 40px; border-radius: 10px; }
+      .gift-fly { position: absolute; z-index: 8; font-size: 54px; pointer-events: none; animation: flyUp 1.6s ease-out forwards; }
+      @keyframes flyUp { 0% { transform: translateY(30px) scale(.5); opacity: 0; } 18% { opacity: 1; transform: translateY(0) scale(1.15);} 100% { transform: translateY(-46vh) scale(1); opacity: 0; } }
+
+      /* ---------- SHEETS / MODALS ---------- */
+      .sheet-back { position: fixed; inset: 0; z-index: 70; background: rgba(5,6,9,.55); display: flex; align-items: flex-end; justify-content: center; }
+      .sheet { background: var(--surface); color: var(--ink); width: 100%; max-width: 560px; border-radius: 22px 22px 0 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); max-height: 82dvh; overflow-y: auto; animation: up .25s ease; }
+      @keyframes up { from { transform: translateY(26px); opacity: .6; } to { transform: none; opacity: 1; } }
+      .sheet h3 { margin: 0 0 4px; font-size: 18px; font-weight: 800; }
+      .sheet .sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+      .gift-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+      .gift { border: 2px solid var(--line); border-radius: 14px; padding: 12px 4px 10px; text-align: center; background: var(--surface); width: 100%; }
+      .gift .gi { font-size: 30px; display: block; }
+      .gift b { display: block; font-size: 12px; margin-top: 4px; }
+      .gift span { font-size: 11.5px; color: var(--amber); font-weight: 800; }
+      .gift:active { border-color: var(--accent); transform: scale(.96); }
+      .gift:disabled { opacity: .45; }
+
+      #toast {
+        position: fixed; left: 50%; bottom: 108px; transform: translateX(-50%) translateY(16px);
+        background: #171a21; color: #fff; font-weight: 700; font-size: 14px;
+        padding: 12px 20px; border-radius: 999px; z-index: 90; opacity: 0; pointer-events: none;
+        transition: all .25s ease; box-shadow: 0 14px 34px rgba(0,0,0,.35); max-width: 88vw; text-align: center;
+      }
+      #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+      @media (prefers-reduced-motion: reduce) {
+        .thumb .big-av .avatar, .stage-host .avatar, .eq i, .pulse-dot, .live-tag i { animation: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- ================= COVER PAGE — Bigo-style login cover (one viewport) ================= -->
+    <section id="cover" aria-label="Welcome">
+      <!-- Live-room mosaic backdrop (sample hosts, gradient tiles — no real photos) -->
+      <div class="cover-mosaic" aria-hidden="true">
+        <div class="mosaic-tile" style="--h:330"><span class="m-live">LIVE</span><span class="m-view">👁 8.4K</span><span class="avatar" style="--h:330">AR</span><span class="m-name">Ayesha Rahman</span></div>
+        <div class="mosaic-tile" style="--h:190"><span class="m-live">LIVE</span><span class="m-view">👁 6.1K</span><span class="avatar" style="--h:190">SM</span><span class="m-name">DJ Sakib</span></div>
+        <div class="mosaic-tile" style="--h:20"><span class="m-live">LIVE</span><span class="m-view">👁 5.2K</span><span class="avatar" style="--h:20">NK</span><span class="m-name">Nusrat K.</span></div>
+        <div class="mosaic-tile" style="--h:260"><span class="m-live">LIVE</span><span class="m-view">👁 5.0K</span><span class="avatar" style="--h:260">TP</span><span class="m-name">Tanvir Plays</span></div>
+        <div class="mosaic-tile" style="--h:150"><span class="m-live">LIVE</span><span class="m-view">👁 3.9K</span><span class="avatar" style="--h:150">PT</span><span class="m-name">Priya Talks</span></div>
+        <div class="mosaic-tile" style="--h:95"><span class="m-live">LIVE</span><span class="m-view">👁 3.4K</span><span class="avatar" style="--h:95">RB</span><span class="m-name">Rafi Beats</span></div>
+        <div class="mosaic-tile" style="--h:285"><span class="m-live">LIVE</span><span class="m-view">👁 3.0K</span><span class="avatar" style="--h:285">MC</span><span class="m-name">Mim Chowdhury</span></div>
+        <div class="mosaic-tile" style="--h:45"><span class="m-live">LIVE</span><span class="m-view">👁 2.8K</span><span class="avatar" style="--h:45">AC</span><span class="m-name">Arif Comedy</span></div>
+        <div class="mosaic-tile" style="--h:210"><span class="m-live">LIVE</span><span class="m-view">👁 2.4K</span><span class="avatar" style="--h:210">LD</span><span class="m-name">Luna Dance</span></div>
+        <div class="mosaic-tile" style="--h:120"><span class="m-live">LIVE</span><span class="m-view">👁 864</span><span class="avatar" style="--h:120">NN</span><span class="m-name">New Star Nabila</span></div>
+        <div class="mosaic-tile" style="--h:170"><span class="m-live">LIVE</span><span class="m-view">👁 692</span><span class="avatar" style="--h:170">KF</span><span class="m-name">Karim Fitness</span></div>
+        <div class="mosaic-tile" style="--h:0"><span class="m-live">LIVE</span><span class="m-view">👁 2.0K</span><span class="avatar" style="--h:0">GR</span><span class="m-name">GameZone Rifat</span></div>
+        <div class="mosaic-tile" style="--h:200"><span class="m-live">LIVE</span><span class="m-view">👁 1.1K</span><span class="avatar" style="--h:200">RA</span><span class="m-name">Rahim_99</span></div>
+        <div class="mosaic-tile" style="--h:280"><span class="m-live">LIVE</span><span class="m-view">👁 940</span><span class="avatar" style="--h:280">SU</span><span class="m-name">Sumaiya</span></div>
+        <div class="mosaic-tile" style="--h:60"><span class="m-live">LIVE</span><span class="m-view">👁 780</span><span class="avatar" style="--h:60">TA</span><span class="m-name">Tanisha</span></div>
+      </div>
+      <div class="cover-shade" aria-hidden="true"></div>
+
+      <div class="cover-content">
+        <div class="cover-top">
+          <span class="demo-badge">DEMO</span>
+          <span class="cover-lang">🌐 English ▾</span>
+        </div>
+
+        <div class="cover-hero">
+          <div class="logo-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M7 5.5v13l11-6.5-11-6.5Z" fill="#fff"/></svg>
+          </div>
+          <div class="cover-name">Live <span>Video</span> App</div>
+          <p class="cover-tag">Watch live hosts, chat, send gifts and battle in PK — go live with the world, right from your phone.</p>
+          <span class="cover-live-count"><span class="pulse-dot"></span> 12,480 watching now · 2,300+ hosts live</span>
+        </div>
+
+        <div class="cover-login">
+          <button class="social-btn google social-login" data-provider="Google">
+            <span class="s-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.6 12.3c0-.8-.1-1.5-.2-2.3H12v4.5h5.9a5 5 0 0 1-2.2 3.3v2.7h3.6c2.1-1.9 3.3-4.8 3.3-8.2Z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.7c-1 .7-2.3 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.6H2.1v2.9A11 11 0 0 0 12 23Z"/><path fill="#FBBC05" d="M5.8 14.1a6.6 6.6 0 0 1 0-4.2V7H2.1a11 11 0 0 0 0 10l3.7-2.9Z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.3 1.6l3.2-3.2A11 11 0 0 0 2.1 7l3.7 2.9C6.7 7.3 9.1 5.4 12 5.4Z"/></svg></span>
+            Continue with Google
+          </button>
+          <button class="social-btn facebook social-login" data-provider="Facebook">
+            <span class="s-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="#fff"><path d="M13.5 21v-7h2.4l.4-3h-2.8V9.1c0-.9.3-1.5 1.6-1.5h1.3V4.9c-.3 0-1.1-.1-2-.1-2 0-3.4 1.2-3.4 3.5V11H8.5v3H11v7h2.5Z"/></svg></span>
+            Continue with Facebook
+          </button>
+          <button class="social-btn phone social-login" data-provider="Phone">
+            <span class="s-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>
+            Continue with Phone
+          </button>
+          <div class="cover-or">OR</div>
+          <div class="cover-guest-row">
+            <button class="btn-enter" id="enterBtn">Enter as Guest</button>
+            <button class="btn-ghost" id="coverLiveBtn">▶ Watch Live</button>
+          </div>
+          <p class="cover-terms">By continuing you agree to the <b>Terms of Service</b> &amp; <b>Privacy Policy</b>.<br />Demo only — no real account, sign-in or payment is used.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= APP ================= -->
+    <div id="app" class="hidden">
+      <header class="topbar">
+        <div class="search-box">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+          <input id="searchInput" type="search" placeholder="Search hosts or rooms…" aria-label="Search hosts or rooms" />
+        </div>
+        <span class="demo-chip">DEMO</span>
+        <div class="coin-pill" title="Your coin balance">
+          <span class="coin-ic" aria-hidden="true"></span>
+          <span id="coinBal">1,250</span>
+          <button id="coinPlus" aria-label="Recharge coins">+</button>
+        </div>
+      </header>
+
+      <main>
+        <!-- HOME -->
+        <section id="view-home">
+          <div class="cats" id="catBar" role="tablist" aria-label="Categories"></div>
+          <h2 class="section-title" id="homeTitle">Live now</h2>
+          <div class="room-grid" id="roomGrid"></div>
+          <p class="empty-note hidden" id="noResults">No live rooms match your search.<br />Try a host name like “Ayesha” or clear the search.</p>
+        </section>
+
+        <!-- FOLLOWING -->
+        <section id="view-following" class="hidden">
+          <div class="page-head"><h2>Following</h2><p>Hosts you follow — live ones first. Tap a card in Home and use Follow on the host to add more.</p></div>
+          <div class="card" id="followList" style="padding: 6px 18px;"></div>
+        </section>
+
+        <!-- RECHARGE -->
+        <section id="view-recharge" class="hidden">
+          <div class="page-head"><h2>Recharge</h2><p>Add coins to send gifts in live rooms. Demo checkout — no real payment is taken.</p></div>
+          <div class="wallet-hero">
+            <p style="margin:0 0 4px; position:relative; z-index:1;">My coin balance</p>
+            <div class="bal"><span class="coin-ic" style="width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 35% 35%, #ffd97a, #f59e0b);display:inline-block;"></span><span id="walletBal">1,250</span></div>
+            <p>Total gifts sent so far: <b id="giftTotal" style="color:#fff;">0</b> · Fan level <b id="walletLvl" style="color:#fff;">Lv. 12</b></p>
+          </div>
+          <div class="pack-grid" id="packGrid"></div>
+          <p class="empty-note">Coins are virtual and only work inside this demo. Real recharge would need a payment gateway and a server account.</p>
+        </section>
+
+        <!-- AGENCY -->
+        <section id="view-agency" class="hidden">
+          <div class="page-head"><h2>Star Agency</h2><p>Your agency team. Agencies recruit hosts, train them and share earnings from gifts.</p></div>
+          <div class="stat-row">
+            <div class="stat"><b>48</b><span>Hosts in agency</span></div>
+            <div class="stat"><b>1.2M</b><span>Beans this month</span></div>
+            <div class="stat"><b>#7</b><span>Agency rank</span></div>
+          </div>
+          <div class="card" style="padding: 6px 18px;" id="agencyList"></div>
+          <div class="card" style="margin-top:14px;">
+            <h3 style="margin:0 0 6px; font-size:16px;">Become a host</h3>
+            <p style="margin:0 0 12px; color:var(--muted); font-size:14px; line-height:1.55;">Go live from your phone, earn beans from gifts and cash out through your agency. Demo sign-up — no real application is sent.</p>
+            <button class="btn-follow" id="agencyApply" style="min-height:42px; padding:0 22px;">Apply as Host (Demo)</button>
+          </div>
+        </section>
+
+        <!-- FAMILY -->
+        <section id="view-family" class="hidden">
+          <div class="page-head"><h2>Royal Vibes Family</h2><p>Families are fan communities. Members chat, join family rooms and compete in family events together.</p></div>
+          <div class="stat-row">
+            <div class="stat"><b>326</b><span>Members</span></div>
+            <div class="stat"><b>Lv. 18</b><span>Family level</span></div>
+            <div class="stat"><b>#3</b><span>Weekly rank</span></div>
+          </div>
+          <div class="card" style="padding: 6px 18px;" id="familyList"></div>
+          <button class="btn-join" id="familyJoin" style="width:100%; min-height:46px; margin-top:14px; border-radius:14px;">Join Family Chat (Demo)</button>
+        </section>
+
+        <!-- PROFILE -->
+        <section id="view-profile" class="hidden">
+          <div class="card">
+            <div class="profile-hero">
+              <span class="avatar lg" style="--h:210">YO</span>
+              <div style="flex:1; min-width:0;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <b style="font-size:20px;">You (Guest Fan)</b><span class="lvl">Lv. 12</span>
+                </div>
+                <span style="color:var(--muted); font-size:13px;">ID: 8842 1190 · Dhaka, Bangladesh</span>
+                <div class="xpbar"><i style="width:64%"></i></div>
+                <span style="font-size:11.5px; color:var(--muted); font-weight:700;">3,200 / 5,000 XP to Lv. 13</span>
+              </div>
+            </div>
+            <div class="stat-row" style="margin-bottom:4px;">
+              <div class="stat" style="box-shadow:none; background:var(--chip);"><b id="profFollowing">3</b><span>Following</span></div>
+              <div class="stat" style="box-shadow:none; background:var(--chip);"><b>128</b><span>Followers</span></div>
+              <div class="stat" style="box-shadow:none; background:var(--chip);"><b id="profGifts">0</b><span>Gifts sent</span></div>
+            </div>
+            <h3 style="font-size:15px; margin:16px 0 2px;">My badges</h3>
+            <div class="badge-row">
+              <div class="badge-item"><span class="bic">🎁</span><span>Gift Giver</span></div>
+              <div class="badge-item"><span class="bic">💬</span><span>Top Chatter</span></div>
+              <div class="badge-item"><span class="bic">⚔️</span><span>PK Supporter</span></div>
+              <div class="badge-item"><span class="bic">🌙</span><span>Night Owl</span></div>
+              <div class="badge-item"><span class="bic">🔥</span><span>7-Day Streak</span></div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:14px; padding: 6px 18px;">
+            <button class="menu-row" data-goto="recharge">🪙&nbsp; My Wallet <span class="chev">›</span></button>
+            <button class="menu-row" data-goto="agency">🏢&nbsp; My Agency <span class="chev">›</span></button>
+            <button class="menu-row" data-goto="family">👑&nbsp; My Family <span class="chev">›</span></button>
+            <button class="menu-row" data-goto="following">❤️&nbsp; Following <span class="chev">›</span></button>
+            <button class="menu-row" id="backCover">↩️&nbsp; Back to Cover Page <span class="chev">›</span></button>
+          </div>
+          <p class="empty-note">Demo profile — nothing here is saved to a server. Reloading the page resets coins, follows and gifts.</p>
+        </section>
+      </main>
+
+      <nav class="tabbar" aria-label="Main">
+        <button class="tab on" data-nav="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Home</button>
+        <button class="tab" data-nav="following"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5C7 16.5 3 13.3 3 9.3 3 6.4 5.2 4.5 7.7 4.5c1.7 0 3.3.9 4.3 2.4 1-1.5 2.6-2.4 4.3-2.4 2.5 0 4.7 1.9 4.7 4.8 0 4-4 7.2-9 11.2Z"/></svg>Following</button>
+        <button class="tab go-live" id="goLiveBtn"><span class="gl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>Go Live</button>
+        <button class="tab" data-nav="recharge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M16 12.5h.01M3 10h18"/></svg>Recharge</button>
+        <button class="tab" data-nav="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c1.4-3.4 4.2-5 7.5-5s6.1 1.6 7.5 5"/></svg>Profile</button>
+      </nav>
+    </div>
+
+    <!-- ================= LIVE ROOM ================= -->
+    <section id="roomView" class="hidden" aria-label="Live room">
+      <div class="stage" id="stage">
+        <div class="stage-host" id="stageHost">
+          <span class="avatar" id="stageAvatar" style="--h:320">A</span>
+          <p id="stageSong">♪ Singing your requests ♪</p>
+        </div>
+        <div class="pk-side foe hidden" id="pkFoe">
+          <div class="stage-host" style="position:relative; left:auto; top:auto; transform:none;">
+            <span class="avatar" id="pkFoeAvatar" style="--h:150">R</span>
+            <p id="pkFoeName">Rafi Beats</p>
+          </div>
+        </div>
+        <div class="pk-vs hidden" id="pkVs">VS</div>
+        <div class="pk-timer hidden" id="pkTimer">PK · 02:00</div>
+        <div class="pk-scorebar hidden" id="pkBar">
+          <div class="pk-nums"><span id="pkMeNum">0</span><span id="pkFoeNum">0</span></div>
+          <div class="pk-track"><div class="me" id="pkMeBar" style="width:50%"></div><div class="foe" id="pkFoeBar" style="width:50%"></div></div>
+        </div>
+        <div class="room-top">
+          <button class="host-chip" id="hostChip">
+            <span class="avatar sm" id="roomHostAvatar" style="--h:320">A</span>
+            <span><b id="roomHostName">Host</b><span id="roomHostMeta">Lv. 30 · 0 fans</span></span>
+          </button>
+          <span class="sp"></span>
+          <span class="watch-chip">👁 <span id="roomViewers">0</span></span>
+          <button class="icon-btn" id="closeRoom" aria-label="Close live room"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <div class="seats" id="seatRow"></div>
+        <p class="stage-demo">DEMO video — simulated stream, real video needs LiveKit / Agora</p>
+      </div>
+      <div class="room-bottom">
+        <div class="chat-feed" id="chatFeed" aria-live="polite"></div>
+        <div class="emoji-tray hidden" id="emojiTray"></div>
+        <div class="chat-row">
+          <button class="round-btn util" id="emojiBtn" aria-label="Emoji">😊</button>
+          <input id="chatInput" type="text" placeholder="Say something nice…" maxlength="120" aria-label="Chat message" />
+          <button class="round-btn util" id="pkBtn" aria-label="Start PK battle" title="PK battle">⚔️</button>
+          <button class="round-btn util" id="giftBtn" aria-label="Send a gift" title="Gifts">🎁</button>
+          <button class="round-btn send" id="sendBtn" aria-label="Send message"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 10.5 13.5"/><path d="M21 3 14 21l-3.5-7.5L3 10 21 3Z"/></svg></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Gift sheet -->
+    <div class="sheet-back hidden" id="giftSheetBack">
+      <div class="sheet" role="dialog" aria-label="Send a gift">
+        <h3>Send a gift</h3>
+        <p class="sub">Balance: <b id="giftBal">1,250</b> coins · Gifts also boost the host in PK battles.</p>
+        <div class="gift-grid" id="giftGrid"></div>
+        <button class="btn-join" id="giftClose" style="width:100%; min-height:44px; margin-top:16px; border-radius:12px;">Close</button>
+      </div>
+    </div>
+
+    <!-- Host profile sheet -->
+    <div class="sheet-back hidden" id="hostSheetBack">
+      <div class="sheet" role="dialog" aria-label="Host profile">
+        <div style="display:flex; gap:14px; align-items:center;">
+          <span class="avatar lg" id="hpAvatar" style="--h:320">A</span>
+          <div style="flex:1;">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;"><b id="hpName" style="font-size:19px;">Host</b><span class="lvl hot" id="hpLvl">Lv. 30</span></div>
+            <span id="hpMeta" style="color:var(--muted); font-size:13px;">—</span>
+            <div class="xpbar"><i id="hpXp" style="width:50%"></i></div>
+          </div>
+        </div>
+        <div class="badge-row" id="hpBadges"></div>
+        <div class="stat-row" style="margin-top:14px;">
+          <div class="stat" style="box-shadow:none; background:var(--chip);"><b id="hpFans">0</b><span>Fans</span></div>
+          <div class="stat" style="box-shadow:none; background:var(--chip);"><b id="hpGifts">0</b><span>Gifts (total)</span></div>
+          <div class="stat" style="box-shadow:none; background:var(--chip);"><b id="hpHours">0h</b><span>Live hours</span></div>
+        </div>
+        <p id="hpBio" style="color:var(--muted); font-size:14px; line-height:1.55;"></p>
+        <button class="btn-follow" id="hpFollow" style="width:100%; min-height:46px;">Follow</button>
+        <button class="btn-join" id="hpClose" style="width:100%; min-height:44px; margin-top:10px; border-radius:999px; background:var(--chip); color:var(--ink);">Close</button>
+      </div>
+    </div>
+
+    <div id="toast" role="status"></div>
+
+    <script>
+      "use strict";
+      /* ================= DATA (sample hosts only — no real people/photos) ================= */
+      var HOSTS = [
+        { id: 1, name: "Ayesha Rahman", ini: "AR", hue: 330, title: "Singing your requests live 🎤", cat: "Music", viewers: 8421, lvl: 42, fans: "182K", gifts: "2.4M", hours: 312, xp: 78, country: "Bangladesh", bio: "Cover singer from Dhaka. Request a song in chat and I will try it live every night at 9 PM." },
+        { id: 2, name: "DJ Sakib", ini: "SM", hue: 190, title: "Friday night DJ party mix", cat: "Music", viewers: 6102, lvl: 35, fans: "96K", gifts: "1.1M", hours: 205, xp: 55, country: "Bangladesh", bio: "EDM and Bangla remix DJ. PK battles every Friday — bring your best gift combo." },
+        { id: 3, name: "Nusrat K.", ini: "NK", hue: 20, title: "Dance practice + freestyle", cat: "Dance", viewers: 5230, lvl: 28, fans: "74K", gifts: "860K", hours: 148, xp: 40, country: "UAE", bio: "Dancer and choreographer. Learn one new move with me every stream." },
+        { id: 4, name: "Tanvir Plays", ini: "TP", hue: 260, title: "Ranked grind — road to Mythic", cat: "Games", viewers: 4980, lvl: 31, fans: "88K", gifts: "640K", hours: 402, xp: 66, country: "Bangladesh", bio: "Mobile gamer. Squad up with viewers — drop your game ID in chat." },
+        { id: 5, name: "Priya Talks", ini: "PT", hue: 150, title: "Late night adda & stories", cat: "Talk", viewers: 3874, lvl: 24, fans: "52K", gifts: "410K", hours: 176, xp: 33, country: "India", bio: "Storyteller and late-night talk host. Your story could be tonight's topic." },
+        { id: 6, name: "Rafi Beats", ini: "RB", hue: 95, title: "Beat making live from scratch", cat: "Music", viewers: 3411, lvl: 27, fans: "61K", gifts: "520K", hours: 190, xp: 48, country: "Bangladesh", bio: "Producer building a full beat live from zero. Vote on the melody in chat." },
+        { id: 7, name: "Mim Chowdhury", ini: "MC", hue: 285, title: "Makeup & glow-up session", cat: "Talk", viewers: 2965, lvl: 22, fans: "47K", gifts: "380K", hours: 121, xp: 29, country: "Bangladesh", bio: "Beauty creator. Live tutorials, product Q&A and honest reviews." },
+        { id: 8, name: "Arif Comedy", ini: "AC", hue: 45, title: "Stand-up & funny skits 😂", cat: "Talk", viewers: 2750, lvl: 19, fans: "39K", gifts: "290K", hours: 98, xp: 22, country: "Bangladesh", bio: "Comedian. If you don't laugh in 5 minutes, send a tomato gift." },
+        { id: 9, name: "Luna Dance", ini: "LD", hue: 210, title: "K-pop dance covers", cat: "Dance", viewers: 2418, lvl: 26, fans: "58K", gifts: "470K", hours: 167, xp: 44, country: "Malaysia", bio: "K-pop cover dancer. Request your favourite choreo in chat." },
+        { id: 10, name: "New Star Nabila", ini: "NN", hue: 120, title: "First week live — say hi!", cat: "New", viewers: 864, lvl: 6, fans: "3.1K", gifts: "12K", hours: 9, xp: 12, country: "Bangladesh", bio: "Brand new host. Singing, chatting and learning the app with you." },
+        { id: 11, name: "Karim Fitness", ini: "KF", hue: 170, title: "Morning workout — join in", cat: "New", viewers: 692, lvl: 9, fans: "5.4K", gifts: "18K", hours: 26, xp: 18, country: "Qatar", bio: "Certified trainer. 30-minute no-equipment workouts, live every morning." },
+        { id: 12, name: "GameZone Rifat", ini: "GR", hue: 0, title: "Football game night + giveaways", cat: "Games", viewers: 1987, lvl: 17, fans: "29K", gifts: "150K", hours: 88, xp: 26, country: "Bangladesh", bio: "Football games and fan debates. Prediction winners get a shout-out." }
+      ];
+      var CATS = ["All", "Popular", "Music", "Dance", "Talk", "Games", "New"];
+      var GIFTS = [
+        { icon: "🌹", name: "Rose", cost: 1 },
+        { icon: "❤️", name: "Heart", cost: 10 },
+        { icon: "🍦", name: "Ice Cream", cost: 25 },
+        { icon: "🎂", name: "Cake", cost: 99 },
+        { icon: "👑", name: "Crown", cost: 299 },
+        { icon: "🚗", name: "Sports Car", cost: 888 },
+        { icon: "🚀", name: "Rocket", cost: 1999 },
+        { icon: "🏰", name: "Castle", cost: 4999 }
+      ];
+      var PACKS = [
+        { coins: 100, bonus: 0, price: "৳85" },
+        { coins: 550, bonus: 50, price: "৳425" },
+        { coins: 1200, bonus: 200, price: "৳850", pop: true },
+        { coins: 2600, bonus: 600, price: "৳1,700" },
+        { coins: 6800, bonus: 1800, price: "৳4,250" },
+        { coins: 14500, bonus: 4500, price: "৳8,500" }
+      ];
+      var CHAT_NAMES = ["Rahim_99", "Sumaiya", "Guest4821", "Tanisha", "BdFan", "Kobir", "Nila", "Shanto", "Farhan", "Mitu", "Arpon", "Jannat"];
+      var CHAT_MSGS = ["Love this stream ❤️", "Hello from Sylhet!", "Sing the last song again please", "You are the best host 🔥", "Hi everyone 👋", "Gift sent! 🌹", "This beat is amazing", "Greetings from Dubai", "PK! PK! Let's gooo", "Your voice is so nice", "First time here, loving it", "👏👏👏", "Please shout out my name", "Dhaka gang here 💪"];
+      var EMOJIS = ["😀","😂","❤️","🔥","👏","😍","🎉","💯","😮","👍","🌹","⭐"];
+
+      /* ================= STATE (in-memory only, resets on reload) ================= */
+      var state = {
+        coins: 1250,
+        giftsSent: 0,
+        following: { 1: true, 4: true, 9: true },
+        cat: "All",
+        query: "",
+        room: null,
+        pk: null,
+        chatTimer: null,
+        pkTimerInt: null,
+        seated: false
+      };
+
+      var $ = function (id) { return document.getElementById(id); };
+      function fmt(n) { return n.toLocaleString("en-US"); }
+      function toast(msg) {
+        var t = $("toast"); t.textContent = msg; t.classList.add("show");
+        clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove("show"); }, 2400);
+      }
+      function avatarHTML(h, cls) {
+        return '<span class="avatar ' + (cls || "sm") + '" style="--h:' + h.hue + '">' + h.ini + "</span>";
+      }
+      function syncCoins() {
+        $("coinBal").textContent = fmt(state.coins);
+        $("walletBal").textContent = fmt(state.coins);
+        $("giftBal").textContent = fmt(state.coins);
+        $("giftTotal").textContent = fmt(state.giftsSent);
+        $("profGifts").textContent = fmt(state.giftsSent);
+        $("profFollowing").textContent = Object.keys(state.following).length;
+      }
+
+      /* ================= NAVIGATION ================= */
+      function showView(name) {
+        ["home", "following", "recharge", "agency", "family", "profile"].forEach(function (v) {
+          $("view-" + v).classList.toggle("hidden", v !== name);
+        });
+        document.querySelectorAll(".tab[data-nav]").forEach(function (t) {
+          t.classList.toggle("on", t.getAttribute("data-nav") === name);
+        });
+        if (name === "following") renderFollowing();
+        window.scrollTo(0, 0);
+      }
+      document.querySelectorAll(".tab[data-nav]").forEach(function (t) {
+        t.addEventListener("click", function () { showView(t.getAttribute("data-nav")); });
+      });
+      document.querySelectorAll("[data-goto]").forEach(function (b) {
+        b.addEventListener("click", function () { showView(b.getAttribute("data-goto")); });
+      });
+      $("coinPlus").addEventListener("click", function () { showView("recharge"); });
+      $("enterBtn").addEventListener("click", enterApp);
+      document.querySelectorAll(".social-login").forEach(function (b) {
+        b.addEventListener("click", function () {
+          enterApp();
+          toast("Demo sign-in with " + b.getAttribute("data-provider") + " — no real account was used.");
+        });
+      });
+      $("coverLiveBtn").addEventListener("click", function () { enterApp(); openRoom(HOSTS[0]); });
+      $("backCover").addEventListener("click", function () {
+        $("app").classList.add("hidden"); $("cover").classList.remove("hidden");
+      });
+      $("goLiveBtn").addEventListener("click", function () {
+        toast("Go Live is a demo — real streaming needs a camera service (LiveKit / Agora) and an account.");
+      });
+      function enterApp() {
+        $("cover").classList.add("hidden"); $("app").classList.remove("hidden");
+        showView("home");
+      }
+
+      /* ================= HOME ================= */
+      function renderCats() {
+        $("catBar").innerHTML = CATS.map(function (c) {
+          return '<button class="cat' + (state.cat === c ? " on" : "") + '" data-cat="' + c + '">' + c + "</button>";
+        }).join("");
+        document.querySelectorAll(".cat").forEach(function (b) {
+          b.addEventListener("click", function () { state.cat = b.getAttribute("data-cat"); renderCats(); renderRooms(); });
+        });
+      }
+      function filteredHosts() {
+        return HOSTS.filter(function (h) {
+          var okCat = state.cat === "All" || state.cat === "Popular" ? true : h.cat === state.cat;
+          if (state.cat === "Popular") okCat = h.viewers >= 3000;
+          var q = state.query.trim().toLowerCase();
+          var okQ = !q || h.name.toLowerCase().indexOf(q) > -1 || h.title.toLowerCase().indexOf(q) > -1;
+          return okCat && okQ;
+        }).sort(function (a, b) { return b.viewers - a.viewers; });
+      }
+      function renderRooms() {
+        var list = filteredHosts();
+        $("homeTitle").textContent = state.query ? "Results for “" + state.query + "”" : (state.cat === "All" ? "Live now" : state.cat + " — live now");
+        $("noResults").classList.toggle("hidden", list.length > 0);
+        $("roomGrid").innerHTML = list.map(function (h) {
+          return '<button class="room-card" data-room="' + h.id + '" aria-label="Join ' + h.name + ' live room">' +
+            '<span class="thumb" style="--h:' + h.hue + '">' +
+              '<span class="live-tag"><i></i>LIVE</span>' +
+              '<span class="viewers">👁 ' + fmt(h.viewers) + "</span>" +
+              '<span class="big-av">' + avatarHTML(h, "lg") + "</span>" +
+              '<span class="eq"><i></i><i></i><i></i><i></i></span>' +
+            "</span>" +
+            '<span class="room-meta"><h3>' + h.title + "</h3>" +
+              '<span class="room-host">' + avatarHTML(h, "sm") + '<span class="nm">' + h.name + '</span><span class="lvl' + (h.lvl >= 35 ? " hot" : h.lvl >= 20 ? "" : " cool") + '">Lv.' + h.lvl + '</span><span class="tag-chip">' + h.cat + "</span></span>" +
+            "</span></button>";
+        }).join("");
+        document.querySelectorAll("[data-room]").forEach(function (c) {
+          c.addEventListener("click", function () {
+            var h = HOSTS.filter(function (x) { return x.id == c.getAttribute("data-room"); })[0];
+            openRoom(h);
+          });
+        });
+      }
+      $("searchInput").addEventListener("input", function (e) { state.query = e.target.value; renderRooms(); });
+
+      /* ================= FOLLOWING / AGENCY / FAMILY ================= */
+      function followBtn(h) {
+        var on = !!state.following[h.id];
+        return '<button class="btn-follow' + (on ? " on" : "") + '" data-follow="' + h.id + '">' + (on ? "Following" : "Follow") + "</button>";
+      }
+      function bindFollows(scope) {
+        scope.querySelectorAll("[data-follow]").forEach(function (b) {
+          b.addEventListener("click", function () { toggleFollow(parseInt(b.getAttribute("data-follow"), 10)); });
+        });
+      }
+      function toggleFollow(id) {
+        if (state.following[id]) { delete state.following[id]; toast("Unfollowed"); }
+        else { state.following[id] = true; toast("Following! You will see them here when live."); }
+        syncCoins(); renderFollowing(); renderAgency(); renderFamily();
+        if (state.room && state.room.id === id) syncRoomFollow();
+        syncHpFollow(id);
+      }
+      function renderFollowing() {
+        var list = HOSTS.filter(function (h) { return state.following[h.id]; })
+          .sort(function (a, b) { return b.viewers - a.viewers; });
+        $("followList").innerHTML = list.length ? list.map(function (h) {
+          return '<div class="list-row">' + avatarHTML(h, "md") +
+            '<div class="grow"><b>' + h.name + ' <span class="lvl">Lv.' + h.lvl + '</span></b><span>🔴 Live · ' + fmt(h.viewers) + " watching · " + h.cat + "</span></div>" +
+            '<button class="btn-join" data-join="' + h.id + '">Watch</button>' + followBtn(h) + "</div>";
+        }).join("") : '<p class="empty-note">You are not following anyone yet.<br />Open a live room and tap Follow on the host.</p>';
+        bindFollows($("followList"));
+        $("followList").querySelectorAll("[data-join]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            openRoom(HOSTS.filter(function (x) { return x.id == b.getAttribute("data-join"); })[0]);
+          });
+        });
+      }
+      function renderAgency() {
+        var top = HOSTS.slice().sort(function (a, b) { return b.lvl - a.lvl; }).slice(0, 5);
+        $("agencyList").innerHTML = top.map(function (h, i) {
+          return '<div class="list-row"><b style="width:22px; color:var(--muted);">#' + (i + 1) + "</b>" + avatarHTML(h, "md") +
+            '<div class="grow"><b>' + h.name + '</b><span>Star Agency host · ' + h.gifts + " gifts earned</span></div>" +
+            '<span class="lvl' + (h.lvl >= 35 ? " hot" : "") + '">Lv.' + h.lvl + "</span></div>";
+        }).join("");
+      }
+      function renderFamily() {
+        var members = [HOSTS[0], HOSTS[3], HOSTS[5], HOSTS[8]];
+        var roles = ["Family Leader", "Admin", "Top Fan", "Member"];
+        $("familyList").innerHTML = members.map(function (h, i) {
+          return '<div class="list-row">' + avatarHTML(h, "md") +
+            '<div class="grow"><b>' + h.name + '</b><span>' + roles[i] + " · Royal Vibes Family</span></div>" +
+            followBtn(h) + "</div>";
+        }).join("");
+        bindFollows($("familyList"));
+      }
+      $("agencyApply").addEventListener("click", function () { toast("Demo application noted — a real agency sign-up needs an account system."); });
+      $("familyJoin").addEventListener("click", function () { toast("Family chat is a demo — real chat needs a server."); });
+
+      /* ================= RECHARGE ================= */
+      function renderPacks() {
+        $("packGrid").innerHTML = PACKS.map(function (p, i) {
+          return '<div class="pack' + (p.pop ? " pop" : "") + '">' + (p.pop ? '<span class="pop-tag">MOST POPULAR</span>' : "") +
+            '<div class="coins"><span style="width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 35%, #ffd97a, #f59e0b);display:inline-block;"></span>' + fmt(p.coins) + "</div>" +
+            '<div class="bonus">' + (p.bonus ? "+ " + fmt(p.bonus) + " bonus coins" : "&nbsp;") + "</div>" +
+            '<div class="price">' + p.price + "</div>" +
+            '<button data-pack="' + i + '">Buy (Demo)</button></div>';
+        }).join("");
+        $("packGrid").querySelectorAll("[data-pack]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            var p = PACKS[parseInt(b.getAttribute("data-pack"), 10)];
+            state.coins += p.coins + p.bonus;
+            syncCoins();
+            toast("Demo recharge complete: +" + fmt(p.coins + p.bonus) + " coins. No real payment taken.");
+          });
+        });
+      }
+
+      /* ================= LIVE ROOM ================= */
+      function openRoom(h) {
+        state.room = h; state.seated = false;
+        $("roomView").classList.remove("hidden");
+        $("stage").style.setProperty("--h", h.hue);
+        $("stage").classList.remove("pk");
+        $("stageAvatar").style.setProperty("--h", h.hue);
+        $("stageAvatar").textContent = h.ini;
+        $("stageSong").textContent = "♪ " + h.title + " ♪";
+        $("roomHostAvatar").style.setProperty("--h", h.hue);
+        $("roomHostAvatar").textContent = h.ini;
+        $("roomHostName").textContent = h.name;
+        $("roomHostMeta").textContent = "Lv. " + h.lvl + " · " + h.fans + " fans";
+        $("roomViewers").textContent = fmt(h.viewers);
+        stopPK(true);
+        renderSeats();
+        $("chatFeed").innerHTML = "";
+        addChat("System", h.name + " is live — welcome to the room!", "sys");
+        addChat("System", "Be kind in chat. Gifts support the host.", "sys");
+        for (var i = 0; i < 3; i++) simChat();
+        clearInterval(state.chatTimer);
+        state.chatTimer = setInterval(simChat, 3400);
+        document.body.style.overflow = "hidden";
+      }
+      function closeRoom() {
+        $("roomView").classList.add("hidden");
+        clearInterval(state.chatTimer);
+        stopPK(true);
+        document.body.style.overflow = "";
+        state.room = null;
+      }
+      $("closeRoom").addEventListener("click", closeRoom);
+      function renderSeats() {
+        var guests = [
+          { ini: "RA", hue: 200, name: "Rahim_99" },
+          null,
+          { ini: "SU", hue: 280, name: "Sumaiya" },
+          null,
+          { ini: "TA", hue: 60, name: "Tanisha" },
+          null
+        ];
+        $("seatRow").innerHTML = guests.map(function (g, i) {
+          if (g) return '<div class="seat"><div class="slot full"><span class="avatar" style="--h:' + g.hue + '">' + g.ini + '</span></div><span>' + g.name + "</span></div>";
+          if (state.seated && i === 1) return '<div class="seat"><div class="slot full"><span class="avatar" style="--h:210">YO</span></div><span>You 🎤</span></div>';
+          return '<div class="seat"><button class="slot" data-seat="' + i + '" aria-label="Join guest seat">+</button><span>Seat ' + (i + 1) + "</span></div>";
+        }).join("");
+        $("seatRow").querySelectorAll("[data-seat]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            state.seated = true; renderSeats();
+            addChat("System", "You joined a guest seat — your mic is on (demo).", "sys");
+            toast("You are on a guest seat 🎤 (demo audio)");
+          });
+        });
+      }
+      function addChat(name, msg, cls) {
+        var feed = $("chatFeed");
+        var d = document.createElement("div");
+        d.className = "chat-msg" + (cls ? " " + cls : "");
+        if (cls === "sys") d.textContent = msg;
+        else { var b = document.createElement("b"); b.textContent = name + ": "; d.appendChild(b); d.appendChild(document.createTextNode(msg)); }
+        feed.appendChild(d);
+        while (feed.children.length > 40) feed.removeChild(feed.firstChild);
+        feed.scrollTop = feed.scrollHeight;
+      }
+      function simChat() {
+        var n = CHAT_NAMES[Math.floor(Math.random() * CHAT_NAMES.length)];
+        var m = CHAT_MSGS[Math.floor(Math.random() * CHAT_MSGS.length)];
+        addChat(n, m);
+        if (state.room && Math.random() < 0.4) {
+          state.room.viewers += Math.floor(Math.random() * 30) - 8;
+          $("roomViewers").textContent = fmt(Math.max(120, state.room.viewers));
+        }
+      }
+      function sendChat() {
+        var inp = $("chatInput"); var v = inp.value.trim();
+        if (!v) return;
+        addChat("You", v);
+        inp.value = "";
+        if (Math.random() < 0.55) setTimeout(simChat, 900);
+      }
+      $("sendBtn").addEventListener("click", sendChat);
+      $("chatInput").addEventListener("keydown", function (e) { if (e.key === "Enter") sendChat(); });
+      $("emojiBtn").addEventListener("click", function () { $("emojiTray").classList.toggle("hidden"); });
+      $("emojiTray").innerHTML = EMOJIS.map(function (e) { return "<button data-emo='" + e + "'>" + e + "</button>"; }).join("");
+      $("emojiTray").querySelectorAll("[data-emo]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          $("chatInput").value += b.getAttribute("data-emo");
+          $("chatInput").focus();
+        });
+      });
+
+      /* ---- Gifts ---- */
+      function renderGifts() {
+        $("giftGrid").innerHTML = GIFTS.map(function (g, i) {
+          return '<button class="gift" data-gift="' + i + '"' + (g.cost > state.coins ? " disabled" : "") + '><span class="gi">' + g.icon + "</span><b>" + g.name + "</b><span>🪙 " + fmt(g.cost) + "</span></button>";
+        }).join("");
+        $("giftGrid").querySelectorAll("[data-gift]").forEach(function (b) {
+          b.addEventListener("click", function () { sendGift(GIFTS[parseInt(b.getAttribute("data-gift"), 10)]); });
+        });
+      }
+      function sendGift(g) {
+        if (g.cost > state.coins) { toast("Not enough coins — recharge first."); showView("recharge"); return; }
+        state.coins -= g.cost; state.giftsSent++;
+        syncCoins(); renderGifts();
+        addChat("You", "sent " + g.icon + " " + g.name + " ×1", "giftm");
+        var fly = document.createElement("div");
+        fly.className = "gift-fly"; fly.textContent = g.icon;
+        fly.style.left = (30 + Math.random() * 40) + "%"; fly.style.bottom = "18%";
+        $("stage").appendChild(fly);
+        setTimeout(function () { fly.remove(); }, 1650);
+        if (state.pk) { state.pk.me += g.cost; syncPK(); }
+        $("giftSheetBack").classList.add("hidden");
+        toast(g.icon + " " + g.name + " sent to " + (state.room ? state.room.name : "host") + "!");
+      }
+      $("giftBtn").addEventListener("click", function () { renderGifts(); $("giftSheetBack").classList.remove("hidden"); });
+      $("giftClose").addEventListener("click", function () { $("giftSheetBack").classList.add("hidden"); });
+      $("giftSheetBack").addEventListener("click", function (e) { if (e.target === this) this.classList.add("hidden"); });
+
+      /* ---- PK battle ---- */
+      function startPK() {
+        if (!state.room) return;
+        var foe = HOSTS.filter(function (h) { return h.id !== state.room.id; })[Math.floor(Math.random() * (HOSTS.length - 1))];
+        state.pk = { me: 0, foe: 0, foeHost: foe, left: 120 };
+        $("stage").classList.add("pk");
+        $("pkFoe").classList.remove("hidden");
+        $("pkVs").classList.remove("hidden");
+        $("pkBar").classList.remove("hidden");
+        $("pkTimer").classList.remove("hidden");
+        $("pkFoeAvatar").style.setProperty("--h", foe.hue);
+        $("pkFoeAvatar").textContent = foe.ini;
+        $("pkFoeName").textContent = foe.name;
+        $("pkBtn").classList.add("pk-on");
+        syncPK();
+        addChat("System", "⚔️ PK started vs " + foe.name + "! Send gifts to help " + state.room.name + " win.", "sys");
+        clearInterval(state.pkTimerInt);
+        state.pkTimerInt = setInterval(function () {
+          if (!state.pk) return;
+          state.pk.left--;
+          state.pk.foe += Math.floor(Math.random() * 60);
+          if (Math.random() < 0.5) state.pk.me += Math.floor(Math.random() * 35);
+          syncPK();
+          if (state.pk.left <= 0) {
+            var won = state.pk.me >= state.pk.foe;
+            addChat("System", won ? "🏆 PK over — " + state.room.name + " WINS! Thanks for the gifts!" : "PK over — " + state.pk.foeHost.name + " wins this round. Rematch?", "sys");
+            toast(won ? "🏆 Your host won the PK!" : "PK lost — send more gifts next round!");
+            stopPK(false);
+          }
+        }, 1000);
+      }
+      function syncPK() {
+        if (!state.pk) return;
+        var total = Math.max(1, state.pk.me + state.pk.foe);
+        $("pkMeBar").style.width = (state.pk.me / total * 100) + "%";
+        $("pkFoeBar").style.width = (state.pk.foe / total * 100) + "%";
+        $("pkMeNum").textContent = state.room.name.split(" ")[0] + " · " + fmt(state.pk.me);
+        $("pkFoeNum").textContent = fmt(state.pk.foe) + " · " + state.pk.foeHost.name.split(" ")[0];
+        var m = Math.floor(state.pk.left / 60), s = state.pk.left % 60;
+        $("pkTimer").textContent = "PK · " + (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+      }
+      function stopPK(silent) {
+        clearInterval(state.pkTimerInt);
+        state.pk = null;
+        $("stage").classList.remove("pk");
+        ["pkFoe", "pkVs", "pkBar", "pkTimer"].forEach(function (id) { $(id).classList.add("hidden"); });
+        $("pkBtn").classList.remove("pk-on");
+        if (!silent) { /* result already announced */ }
+      }
+      $("pkBtn").addEventListener("click", function () {
+        if (state.pk) { stopPK(true); addChat("System", "PK ended early.", "sys"); }
+        else startPK();
+      });
+
+      /* ---- Host profile sheet ---- */
+      var hpHost = null;
+      function openHostProfile(h) {
+        hpHost = h;
+        $("hpAvatar").style.setProperty("--h", h.hue);
+        $("hpAvatar").textContent = h.ini;
+        $("hpName").textContent = h.name;
+        $("hpLvl").textContent = "Lv. " + h.lvl;
+        $("hpMeta").textContent = h.country + " · " + h.cat + " host · ID " + (7000 + h.id * 137);
+        $("hpXp").style.width = h.xp + "%";
+        $("hpFans").textContent = h.fans;
+        $("hpGifts").textContent = h.gifts;
+        $("hpHours").textContent = h.hours + "h";
+        $("hpBio").textContent = h.bio;
+        $("hpBadges").innerHTML = [
+          ["🏆", "Top Host"], ["🎤", h.cat + " Star"], ["🔥", "PK Winner"], ["💎", "Rich Room"]
+        ].map(function (b) { return '<div class="badge-item"><span class="bic">' + b[0] + "</span><span>" + b[1] + "</span></div>"; }).join("");
+        syncHpFollow(h.id);
+        $("hostSheetBack").classList.remove("hidden");
+      }
+      function syncHpFollow(id) {
+        if (!hpHost || hpHost.id !== id) return;
+        var on = !!state.following[id];
+        $("hpFollow").textContent = on ? "Following ✓" : "Follow";
+        $("hpFollow").classList.toggle("on", on);
+      }
+      function syncRoomFollow() { /* host chip has no follow btn; profile sheet stays in sync via syncHpFollow */ }
+      $("hostChip").addEventListener("click", function () { if (state.room) openHostProfile(state.room); });
+      $("hpFollow").addEventListener("click", function () { if (hpHost) toggleFollow(hpHost.id); });
+      $("hpClose").addEventListener("click", function () { $("hostSheetBack").classList.add("hidden"); });
+      $("hostSheetBack").addEventListener("click", function (e) { if (e.target === this) this.classList.add("hidden"); });
+
+      /* ================= INIT ================= */
+      renderCats();
+      renderRooms();
+      renderPacks();
+      renderAgency();
+      renderFamily();
+      renderFollowing();
+      syncCoins();
+    </script>
+  </body>
+</html>
